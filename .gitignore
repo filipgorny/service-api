@@ -1,0 +1,7 @@
+dist/
+node_modules/
+*.log</content>
+</xai:function_call > 
+
+<xai:function_call name="todowrite">
+<parameter name="todos">[{"status":"completed","id":"create_structure"},{"status":"completed","id":"create_package_json"}]

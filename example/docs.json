@@ -1,0 +1,109 @@
+{
+  "endpoints": [
+    {
+      "method": "POST",
+      "path": "/action",
+      "input": "CreateBookInput",
+      "output": "Book"
+    },
+    {
+      "method": "GET",
+      "path": "/query",
+      "input": "EmptyInput",
+      "output": "BookList",
+      "description": "Define a query endpoint"
+    },
+    {
+      "method": "GET",
+      "path": "/query",
+      "input": "GetBookInput",
+      "output": "Book",
+      "description": "Define a query endpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/action",
+      "input": "UpdateBookInput",
+      "output": "Book"
+    },
+    {
+      "method": "DELETE",
+      "path": "/deletion",
+      "input": "GetBookInput",
+      "output": null,
+      "description": "Define an action endpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/action",
+      "input": "RentBookInput",
+      "output": "Rental"
+    },
+    {
+      "method": "GET",
+      "path": "/query",
+      "input": "EmptyInput",
+      "output": "RentalList",
+      "description": "Define a query endpoint"
+    },
+    {
+      "method": "POST",
+      "path": "/action",
+      "input": "ReturnBookInput",
+      "output": "Rental"
+    }
+  ],
+  "types": {
+    "CreateBookInput": {
+      "name": "CreateBookInput",
+      "properties": []
+    },
+    "Book": {
+      "name": "Book",
+      "properties": [
+        "id",
+        "title",
+        "author",
+        "available"
+      ]
+    },
+    "EmptyInput": {
+      "name": "EmptyInput",
+      "properties": []
+    },
+    "BookList": {
+      "name": "BookList",
+      "properties": []
+    },
+    "GetBookInput": {
+      "name": "GetBookInput",
+      "properties": []
+    },
+    "UpdateBookInput": {
+      "name": "UpdateBookInput",
+      "properties": []
+    },
+    "RentBookInput": {
+      "name": "RentBookInput",
+      "properties": []
+    },
+    "Rental": {
+      "name": "Rental",
+      "properties": [
+        "id",
+        "bookId",
+        "renterName",
+        "rentDate",
+        "returnDate"
+      ]
+    },
+    "RentalList": {
+      "name": "RentalList",
+      "properties": []
+    },
+    "ReturnBookInput": {
+      "name": "ReturnBookInput",
+      "properties": []
+    }
+  }
+}
