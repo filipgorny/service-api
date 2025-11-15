@@ -48,6 +48,10 @@ describe("Schema Endpoint", () => {
     app = (api as any).strategy.app;
   });
 
+  afterAll(async () => {
+    await api.shutdown();
+  });
+
   it("should return 200 for /schema endpoint", async () => {
     const response = await request(app)
       .get("/schema")

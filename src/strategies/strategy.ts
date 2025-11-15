@@ -11,6 +11,9 @@ export interface Strategy {
   // Run the server (called when api.run() is invoked, after configure)
   onApiRun(): void;
 
+  // Cleanup method for graceful shutdown
+  close?(): Promise<void>;
+
   // Optional methods for testing purposes
   getApp?(): any;
   getServer?(): any;

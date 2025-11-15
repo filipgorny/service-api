@@ -78,4 +78,10 @@ export abstract class Api {
   getApiName(): string {
     return this.apiName;
   }
+
+  async shutdown(): Promise<void> {
+    if (this.strategy.close) {
+      await this.strategy.close();
+    }
+  }
 }

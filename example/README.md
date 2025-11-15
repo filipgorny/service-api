@@ -1,32 +1,3 @@
-<<<<<<< HEAD
-# Library Management Microservice Example
-
-This example demonstrates a CRUD microservice for managing a library with books and rentals using the @filipgorny/service-api library.
-
-## Features
-
-- CRUD operations for books
-- Rent and return books
-- Mock in-memory database
-- Automatic API documentation
-
-## Running the Example
-
-1. Build the package:
-
-   ```bash
-   cd packages/service-api
-   npm run build
-   ```
-
-2. Run the example:
-
-   ```bash
-   npx ts-node example/index.ts
-   ```
-
-3. The service will start on port 3000.
-=======
 # Service API Examples
 
 This folder contains examples demonstrating the @filipgorny/service-api library features.
@@ -73,7 +44,6 @@ Original complete example with books and rentals management.
 ```bash
 npx ts-node example/index.ts
 ```
->>>>>>> cdaf7aa (Update 0.0.3)
 
 ## API Endpoints
 
@@ -112,13 +82,6 @@ npx ts-node example/index.ts
   - Input: `{ rentalId: number }`
   - Output: Rental
 
-<<<<<<< HEAD
-## Documentation
-
-Visit `http://localhost:3000/docs` for JSON API documentation.
-
-Alternatively, view the generated documentation: [docs.json](./docs.json)
-=======
 ## Default Endpoints
 
 Every REST API includes these endpoints automatically:
@@ -163,4 +126,3 @@ The `/schema` endpoint returns a protocol-agnostic API description that can be u
 - Enables protocol-agnostic microservice communication
 
 ## API Endpoints (Original Example)
->>>>>>> cdaf7aa (Update 0.0.3)

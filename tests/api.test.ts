@@ -8,9 +8,10 @@ class TestInput {
 
 describe("Service API", () => {
   let app: any;
+  let api: RestApi;
 
   beforeAll(async () => {
-    const api = new RestApi(expressStrategy(0), false);
+    api = new RestApi(expressStrategy(0), false);
 
     api.create("create", async function (input: TestInput) {
       return { message: `Hello ${input.name}` };
@@ -33,6 +34,10 @@ describe("Service API", () => {
     (api as any).strategy.configure(api.getMethods(), api.getVersion());
 
     app = (api as any).strategy.app;
+  });
+
+  afterAll(async () => {
+    await api.shutdown();
   });
 
   it("should create a resource", async () => {

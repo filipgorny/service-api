@@ -151,6 +151,27 @@ export class ExpressStrategy implements Strategy {
   getServer(): any {
     return this.server;
   }
+
+  /**
+   * Close the HTTP server and cleanup resources
+   */
+  close(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (this.server) {
+        this.server.close((error?: Error) => {
+          if (error) {
+            this.logger.error("Error closing server:", error);
+            reject(error);
+          } else {
+            this.logger.info("Server closed successfully");
+            resolve();
+          }
+        });
+      } else {
+        resolve();
+      }
+    });
+  }
 }
 
 // Factory function for creating Express strategy

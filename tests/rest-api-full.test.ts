@@ -24,6 +24,7 @@ class Book {
 
 describe("REST API - Full Example Test", () => {
   let app: any;
+  let api: RestApi;
   let books: Book[];
   let nextBookId: number;
 
@@ -36,7 +37,7 @@ describe("REST API - Full Example Test", () => {
     nextBookId = 3;
 
     // Create REST API instance
-    const api = new RestApi(expressStrategy(0), false);
+    api = new RestApi(expressStrategy(0), false);
 
     // GET /books - Get all books
     api.get("books", async function () {
@@ -80,6 +81,10 @@ describe("REST API - Full Example Test", () => {
     // Configure the strategy
     (api as any).strategy.configure(api.getMethods(), api.getVersion());
     app = (api as any).strategy.app;
+  });
+
+  afterAll(async () => {
+    await api.shutdown();
   });
 
   describe("GET /books - Get all books", () => {
