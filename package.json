@@ -1,13 +1,24 @@
 {
   "name": "@filipgorny/service-api",
-  "version": "1.0.0",
+  "version": "0.0.3",
   "description": "A library for defining and creating HTTP service APIs with validation and documentation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && tsc-alias",
     "dev": "tsc --watch",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "jest"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    }
   },
   "keywords": [
     "api",
@@ -18,16 +29,36 @@
   ],
   "author": "Filip Gorny",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/filipgorny/service-api.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
-    "@filipgorny/types": "workspace:^",
+    "@filipgorny/logger": "workspace:*",
+    "@filipgorny/types": "^0.0.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.0",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "reflect-metadata": "^0.2.2"
+    "reflect-metadata": "^0.2.2",
+    "swagger-ui-dist": "^5.30.2"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20.10.0",
+    "@types/supertest": "^6.0.3",
+    "jest": "^30.2.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.5",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.3.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
   }
 }
