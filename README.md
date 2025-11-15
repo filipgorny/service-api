@@ -9,7 +9,7 @@ A TypeScript library for defining protocol-agnostic service APIs with automatic 
 - ✅ **Strategy pattern** - Easily switch between different protocols and transports
 - ✅ **Type-safe** - Full TypeScript support with automatic type extraction via reflect-metadata
 - ✅ **Automatic validation** - Using class-validator decorators
-- ✅ **Built-in endpoints** - `/health` and `/Documentation` available by default
+- ✅ **Built-in endpoints** - `/`, `/health`, and `/schema` available by default
 - ✅ **Built-in CORS** - Enabled by default for all REST routes
 - ✅ **URL params support** - Automatic handling of route parameters (e.g., `/book/:id`)
 - ✅ **Error handling** - Automatic try-catch with proper HTTP error responses
@@ -57,9 +57,10 @@ api.run();
 
 **That's it!** Your service is now running with:
 
+- `GET /` - API documentation (OpenAPI/Swagger UI)
 - `GET /hello` - Your custom endpoint
 - `GET /health` - Health check with version and uptime
-- `GET /Documentation` - API documentation
+- `GET /schema` - Universal API manifest
 
 ### 3. Full CRUD Example
 
@@ -192,9 +193,9 @@ Health check endpoint for monitoring:
 }
 ```
 
-### `GET /Documentation`
+### `GET /`
 
-API documentation endpoint (returns HTML when using OpenAPI view).
+API documentation endpoint - returns interactive OpenAPI/Swagger UI.
 
 ## URL Parameters
 
@@ -279,7 +280,7 @@ The architecture supports future strategies:
 ### Disable Default Methods
 
 ```typescript
-const api = new RestApi(express(3000), false); // No /health or /Documentation
+const api = new RestApi(express(3000), false); // Disable default endpoints (/, /health, /schema)
 ```
 
 ### Access Strategy Internals

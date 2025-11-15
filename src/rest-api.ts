@@ -12,7 +12,7 @@ export class RestApi extends Api {
     // Documentation endpoint
     new Method(
       MethodType.GET,
-      "Documentation",
+      "/",
       async () => {
         const documentationView = this.documentationRegistry
           .getDocumentation()
