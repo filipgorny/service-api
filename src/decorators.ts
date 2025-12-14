@@ -10,6 +10,7 @@ export { Put } from "./decorators/put.decorator";
 export { Delete } from "./decorators/delete.decorator";
 export { Description } from "./decorators/description.decorator";
 export { Guard } from "./decorators/guard.decorator";
+export { Param } from "./decorators/param.decorator";
 
 // Legacy decorator - kept for backward compatibility
 export function Describe(description: string) {

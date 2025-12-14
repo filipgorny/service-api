@@ -7,7 +7,7 @@ import { Guard } from "@/guard/guard";
 export class Method {
   inputClass!: ClassType;
   outputClass?: ClassType;
-  handler!: (input: any) => Promise<any>;
+  handler!: (input: any, context?: any) => Promise<any>;
   type!: MethodType;
   name!: string;
   description?: string;
@@ -17,7 +17,7 @@ export class Method {
   constructor(
     type: MethodType,
     name: string,
-    handler: (input: any) => Promise<any>,
+    handler: (input: any, context?: any) => Promise<any>,
     description?: string,
     inputClass?: ClassType,
     outputClass?: ClassType,
@@ -25,7 +25,7 @@ export class Method {
   constructor(
     configOrType: MethodConfig | MethodType,
     name?: string,
-    handler?: (input: any) => Promise<any>,
+    handler?: (input: any, context?: any) => Promise<any>,
     description?: string,
     inputClass?: ClassType,
     outputClass?: ClassType,

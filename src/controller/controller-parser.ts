@@ -8,7 +8,9 @@ import {
   METHOD_METADATA,
   DESCRIPTION_METADATA,
   GUARD_METADATA,
+  PARAM_METADATA,
   MethodMetadata,
+  ParamMetadata,
 } from "./controller-metadata";
 
 /**
@@ -16,18 +18,24 @@ import {
  */
 export class ControllerParser {
   /**
-   * Parse a controller class and extract all method configurations
-   * @param controllerClass - Controller class decorated with @Controller
+   * Parse a controller class or instance and extract all method configurations
+   * @param controllerClassOrInstance - Controller class or instance decorated with @Controller
    * @param guardRegistry - Map of registered guards by name
    * @param defaultGuard - Optional default guard to use when @Guard() has no argument
    * @returns Array of MethodConfig objects for each decorated method
    * @throws Error if controller doesn't have @Controller decorator or guard is not found
    */
   static parse(
-    controllerClass: any,
+    controllerClassOrInstance: any,
     guardRegistry: Map<string, Guard>,
     defaultGuard?: Guard,
   ): MethodConfig[] {
+    // Determine if it's a class or instance
+    const isClass = typeof controllerClassOrInstance === "function";
+    const controllerClass = isClass
+      ? controllerClassOrInstance
+      : controllerClassOrInstance.constructor;
+
     // 1. Validate that the class has @Controller decorator
     const controllerPath = Reflect.getMetadata(
       CONTROLLER_PATH_METADATA,
@@ -41,8 +49,10 @@ export class ControllerParser {
       );
     }
 
-    // 2. Create controller instance
-    const instance = new controllerClass();
+    // 2. Get or create controller instance
+    const instance = isClass
+      ? new controllerClass()
+      : controllerClassOrInstance;
     const prototype = Object.getPrototypeOf(instance);
     const methodConfigs: MethodConfig[] = [];
 
@@ -121,12 +131,16 @@ export class ControllerParser {
         }
       }
 
+      // 8b. Get parameter metadata from @Param decorator
+      const paramMetadata: ParamMetadata[] =
+        Reflect.getMetadata(PARAM_METADATA, prototype, propertyName) || [];
+
       // 9. Determine final path
       let finalPath = methodMeta.path;
 
-      if (!finalPath) {
-        // Auto-generate path from method name (camelCase -> dash-case)
-        finalPath = camelToDashCase(propertyName);
+      if (finalPath === undefined) {
+        // No path provided - use empty string to match controller base path
+        finalPath = "";
       }
 
       // 10. Combine controller path with method path
@@ -137,11 +151,37 @@ export class ControllerParser {
       // Combine paths - if both are empty, default to root '/'
       const fullPath = normalizedControllerPath + normalizedMethodPath || "/";
 
-      // 11. Create MethodConfig
+      // 11. Create wrapped handler that injects route params
+      const originalHandler = method.bind(instance);
+      const wrappedHandler = (input: any, context: any) => {
+        // If there are @Param decorators, inject route params
+        if (paramMetadata.length > 0 && context?.params) {
+          const args: any[] = [];
+
+          // Build arguments array based on param metadata
+          for (const param of paramMetadata) {
+            const paramValue = context.params[param.paramName];
+            args[param.parameterIndex] = paramValue;
+          }
+
+          // First parameter is usually input DTO (index 0)
+          // If no @Param at index 0, use input parameter
+          if (!paramMetadata.find((p) => p.parameterIndex === 0)) {
+            args[0] = input;
+          }
+
+          return originalHandler(...args);
+        }
+
+        // No params, call normally
+        return originalHandler(input, context);
+      };
+
+      // 12. Create MethodConfig
       const config: MethodConfig = {
         type: methodMeta.type,
         name: fullPath,
-        handler: method.bind(instance),
+        handler: wrappedHandler,
         description,
         inputClass: paramTypes?.[0],
         outputClass: returnType,

@@ -29,6 +29,7 @@ export {
   Delete,
   Description,
   Describe,
+  Param,
 } from "./decorators";
 
 // Re-export Guard decorator separately to avoid naming conflict

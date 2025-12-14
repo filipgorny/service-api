@@ -14,7 +14,7 @@ export interface MethodConfig {
   name: string;
 
   /** Handler function that processes the request */
-  handler: (input: any) => Promise<any>;
+  handler: (input: any, context?: any) => Promise<any>;
 
   /** Optional description of the method */
   description?: string;

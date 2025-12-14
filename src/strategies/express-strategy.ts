@@ -113,7 +113,12 @@ export class ExpressStrategy implements Strategy {
 
         // Execute handler with validated input - wrapped in try-catch
         try {
-          const result = await method.handler(inputInstance);
+          const context = {
+            params: req.params,
+            query: req.query,
+            body: req.body,
+          };
+          const result = await method.handler(inputInstance, context);
 
           if (typeof result === "string") {
             res.type("text/html").send(result);
