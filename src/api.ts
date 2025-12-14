@@ -1,12 +1,11 @@
 import { Method } from "@/method/method";
-import { MethodType } from "@/method/method-type";
 import { DocumentationRegistry } from "@/documentation/documentation-registry";
 import { MethodDocumentation } from "@/documentation/method-documentation";
 import { Strategy } from "@/strategies/strategy";
 import { getVersionFromPackage } from "@/utils/get-version-from-package";
 import { getApiNameFromPackage } from "@/utils/get-api-name-from-package";
 import { MethodsCollection } from "@/method/methods-collection";
-import { MethodOptions } from "@/method/method-options";
+import { Logger } from "@filipgorny/logger";
 
 // Abstract base class for all API types (REST, GraphQL, gRPC, etc.)
 export abstract class Api {
@@ -14,6 +13,7 @@ export abstract class Api {
   protected documentationRegistry: DocumentationRegistry;
   protected version: string;
   protected apiName: string;
+  protected logger: Logger;
 
   // Abstract property - must be defined by subclasses (e.g., RestApi, GraphQLApi)
   protected abstract defaultMethods: Method[];
@@ -24,11 +24,25 @@ export abstract class Api {
   ) {
     this.version = getVersionFromPackage();
     this.apiName = getApiNameFromPackage();
+    this.logger = new Logger(undefined, { service: this.apiName });
 
-    this.documentationRegistry = new DocumentationRegistry(
-      this.apiName,
-      this.version,
-    );
+    this.documentationRegistry = new DocumentationRegistry(this.apiName, this.version);
+
+    this.setupGracefulShutdown();
+  }
+
+  private setupGracefulShutdown(): void {
+    process.on("SIGTERM", async () => {
+      this.logger.info("SIGTERM received, shutting down gracefully");
+      await this.shutdown();
+      process.exit(0);
+    });
+
+    process.on("SIGINT", async () => {
+      this.logger.info("SIGINT received, shutting down gracefully");
+      await this.shutdown();
+      process.exit(0);
+    });
   }
 
   run(): void {
@@ -36,9 +50,7 @@ export abstract class Api {
       // Add default methods to the collection
       for (const method of this.defaultMethods) {
         this.methods.add(method);
-        this.documentationRegistry.registerMethod(
-          MethodDocumentation.fromMethod(method),
-        );
+        this.documentationRegistry.registerMethod(MethodDocumentation.fromMethod(method));
       }
     }
 
@@ -48,14 +60,9 @@ export abstract class Api {
 
   // Core method for registering any type of method
   protected registerMethod(method: Method): this {
-    this.documentationRegistry.registerTypes(
-      method.inputClass,
-      method.outputClass,
-    );
+    this.documentationRegistry.registerTypes(method.inputClass, method.outputClass);
     this.methods.add(method);
-    this.documentationRegistry.registerMethod(
-      MethodDocumentation.fromMethod(method),
-    );
+    this.documentationRegistry.registerMethod(MethodDocumentation.fromMethod(method));
 
     return this;
   }

@@ -6,16 +6,20 @@ export { Api } from "@/api";
 export { RestApi } from "@/rest-api";
 export { DocumentationRegistry } from "@/documentation/documentation-registry";
 export { ClassType } from "@filipgorny/types";
-export { Method } from "@/method/method";
-export { MethodType } from "@/method/method-type";
-export type { MethodOptions } from "@/method/method-options";
-export type { TypesRegistry } from "@/method/types-registry";
+export { Method } from "./method/method";
+export { MethodsCollection } from "./method/methods-collection";
+export { MethodType } from "./method/method-type";
+export type { MethodOptions } from "./method/method-options";
+export type { TypesRegistry } from "./method/types-registry";
 export { StrategyType } from "@/strategies/strategy-type";
 export { express, ExpressStrategy } from "@/strategies/express-strategy";
 export type { Strategy } from "@/strategies/strategy";
 export { SchemaView } from "@/documentation/views/schema-view";
+export { SchemaBuilder } from "@/schema-builder";
+
+// Schema - primary export for service-to-service communication
+export { Schema } from "@/schema";
 export type {
-  ApiManifest,
   ServiceInfo,
   Operation,
   OperationType,
@@ -23,4 +27,6 @@ export type {
   SchemaDefinition,
   JsonSchema,
   PropertySchema,
-} from "@/manifest/api-manifest";
+  ProtocolType,
+  HttpMethod,
+} from "@/schema";

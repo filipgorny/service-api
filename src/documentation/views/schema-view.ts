@@ -1,185 +1,135 @@
-import { DocumentationView } from "./documentation-view";
-import { MethodDocumentation } from "../method-documentation";
-import { TypesRegistry } from "@/method/types-registry";
-import {
-  ApiManifest,
-  Operation,
-  OperationType,
-  SchemaDefinition,
-  JsonSchema,
-  PropertySchema,
-} from "@/manifest/api-manifest";
-import { MethodType } from "@/method/method-type";
+import { Schema } from "@/schema";
 
-// Schema view implementation - returns universal API manifest
-export class SchemaView extends DocumentationView {
-  constructor(
-    apiName: string,
-    methods: MethodDocumentation[],
-    version: string,
-    types: TypesRegistry,
-    private baseUrl: string = "",
-  ) {
-    super(apiName, methods, version, types);
+/**
+ * SchemaView - Renders Schema object as YAML/JSON/HTML
+ *
+ * This view accepts a Schema object and renders it in various formats.
+ * It does NOT build the schema - that's done by RestApi/GraphQLApi/etc.
+ */
+export class SchemaView {
+  private schema: Schema;
+
+  constructor(schema: Schema) {
+    this.schema = schema;
   }
 
+  /**
+   * Get HTML representation of schema
+   */
   getHTML(): string {
-    // Return JSON as HTML for browser viewing
-    const manifest = this.getManifest();
+    const yaml = this.toYAML();
     return `
 <!DOCTYPE html>
 <html>
 <head>
-  <title>${this.apiName} API Schema</title>
+  <title>${this.schema.service.name} API Schema</title>
   <style>
     body { font-family: monospace; margin: 20px; background: #f5f5f5; }
-    pre { background: white; padding: 20px; border-radius: 4px; overflow: auto; }
+    pre { background: white; padding: 20px; border-radius: 4px; overflow: auto; line-height: 1.5; }
+    h1 { color: #333; }
+    .protocol { color: #666; font-size: 14px; }
   </style>
 </head>
 <body>
-  <h1>${this.apiName} API Schema</h1>
-  <pre>${JSON.stringify(manifest, null, 2)}</pre>
+  <h1>${this.schema.service.name} API Schema</h1>
+  <p class="protocol">Protocol: ${this.schema.service.protocol} | Version: ${this.schema.service.version}</p>
+  <pre>${yaml}</pre>
 </body>
 </html>
     `.trim();
   }
 
-  // Main method to get the API manifest
-  getManifest(): ApiManifest {
-    return {
-      service: {
-        name: this.apiName,
-        version: this.version,
-        baseUrl: this.baseUrl,
-        description: `${this.apiName} API`,
-      },
-      operations: this.buildOperations(),
-      definitions: this.buildDefinitions(),
-    };
+  /**
+   * Get Schema object
+   */
+  getSchema(): Schema {
+    return this.schema;
   }
 
-  // Get raw schema as JSON string
+  /**
+   * Get raw schema as JSON string
+   */
   getRaw(): string {
-    return JSON.stringify(this.getManifest(), null, 2);
+    return JSON.stringify(this.schema.toJSON(), null, 2);
   }
 
-  private buildOperations(): Operation[] {
-    return this.methods.map((method) => {
-      const operationType = this.mapMethodTypeToOperationType(method.type);
-      const operationId = this.buildOperationId(method.name, method.type);
+  /**
+   * Convert schema to YAML format
+   */
+  toYAML(): string {
+    const schema = this.schema.toJSON();
+    let yaml = "";
 
-      return {
-        id: operationId,
-        operationType,
-        description: method.description,
-        input: {
-          schema: this.buildInputSchema(method),
-        },
-        output: {
-          schema: this.buildOutputSchema(method),
-        },
-      };
-    });
-  }
-
-  private mapMethodTypeToOperationType(methodType: MethodType): OperationType {
-    // GET maps to query
-    if (methodType === MethodType.GET) {
-      return "query";
+    // Service info
+    yaml += "service:\n";
+    yaml += `  name: ${schema.service.name}\n`;
+    yaml += `  version: ${schema.service.version}\n`;
+    yaml += `  protocol: ${schema.service.protocol}\n`;
+    yaml += `  baseUrl: ${schema.service.baseUrl}\n`;
+    if (schema.service.description) {
+      yaml += `  description: ${schema.service.description}\n`;
     }
+    yaml += "\n";
 
-    // CREATE, UPDATE, DELETE map to mutation
-    if (
-      methodType === MethodType.CREATE ||
-      methodType === MethodType.UPDATE ||
-      methodType === MethodType.DELETE
-    ) {
-      return "mutation";
-    }
-
-    // Default to query
-    return "query";
-  }
-
-  private buildOperationId(name: string, type: MethodType): string {
-    // Convert "books" + "GET" → "books.list"
-    // Convert "book" + "CREATE" → "book.create"
-    // Convert "book/:id" + "GET" → "book.get"
-
-    // Remove URL params
-    const cleanName = name.replace(/\/:[^/]+/g, "");
-
-    if (type === MethodType.GET) {
-      // If name is plural or contains "list", use .list
-      if (cleanName.endsWith("s") || cleanName.includes("list")) {
-        return `${cleanName}.list`;
+    // Operations
+    yaml += "operations:\n";
+    for (const op of schema.operations) {
+      yaml += `  - id: ${op.id}\n`;
+      yaml += `    operationType: ${op.operationType}\n`;
+      if (op.description) {
+        yaml += `    description: "${op.description}"\n`;
       }
-      return `${cleanName}.get`;
+
+      // REST-specific details
+      if (op.rest) {
+        yaml += `    rest:\n`;
+        yaml += `      method: ${op.rest.method}\n`;
+        yaml += `      path: ${op.rest.path}\n`;
+      }
+
+      // GraphQL-specific details
+      if (op.graphql) {
+        yaml += `    graphql:\n`;
+        yaml += `      query: "${op.graphql.query}"\n`;
+      }
+
+      // Input schema
+      yaml += `    input:\n`;
+      if (op.input.schema.$ref) {
+        yaml += `      $ref: "${op.input.schema.$ref}"\n`;
+      } else {
+        yaml += `      type: ${op.input.schema.type}\n`;
+      }
+
+      // Output schema
+      yaml += `    output:\n`;
+      if (op.output.schema.$ref) {
+        yaml += `      $ref: "${op.output.schema.$ref}"\n`;
+      } else {
+        yaml += `      type: ${op.output.schema.type}\n`;
+      }
+    }
+    yaml += "\n";
+
+    // Definitions
+    if (Object.keys(schema.definitions).length > 0) {
+      yaml += "definitions:\n";
+      for (const [name, def] of Object.entries(schema.definitions)) {
+        yaml += `  ${name}:\n`;
+        yaml += `    type: ${def.type}\n`;
+        if (def.properties) {
+          yaml += `    properties:\n`;
+          for (const [propName, propSchema] of Object.entries(def.properties)) {
+            yaml += `      ${propName}:\n`;
+            yaml += `        type: ${propSchema.type || "string"}\n`;
+            if (propSchema.required) {
+              yaml += `        required: ${propSchema.required}\n`;
+            }
+          }
+        }
+      }
     }
 
-    if (type === MethodType.CREATE) {
-      return `${cleanName}.create`;
-    }
-
-    if (type === MethodType.UPDATE) {
-      return `${cleanName}.update`;
-    }
-
-    if (type === MethodType.DELETE) {
-      return `${cleanName}.delete`;
-    }
-
-    return cleanName;
-  }
-
-  private buildInputSchema(method: MethodDocumentation): JsonSchema {
-    if (!method.input) {
-      return { type: "object", properties: {} };
-    }
-
-    return {
-      type: "object",
-      $ref: `#/definitions/${method.input.name}`,
-    };
-  }
-
-  private buildOutputSchema(method: MethodDocumentation): JsonSchema {
-    if (!method.output) {
-      return { type: "void" };
-    }
-
-    return {
-      type: "object",
-      $ref: `#/definitions/${method.output.name}`,
-    };
-  }
-
-  private buildDefinitions(): Record<string, SchemaDefinition> {
-    const definitions: Record<string, SchemaDefinition> = {};
-
-    for (const [typeName, typeInfo] of Object.entries(this.types)) {
-      definitions[typeName] = {
-        type: "object",
-        properties: this.buildProperties(typeInfo.properties),
-      };
-    }
-
-    return definitions;
-  }
-
-  private buildProperties(
-    properties: string[],
-  ): Record<string, PropertySchema> {
-    const result: Record<string, PropertySchema> = {};
-
-    for (const prop of properties) {
-      // Simplified: assume string type for all properties
-      // In a real implementation, you'd extract actual types from metadata
-      result[prop] = {
-        type: "string",
-      };
-    }
-
-    return result;
+    return yaml;
   }
 }

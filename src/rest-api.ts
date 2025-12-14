@@ -4,6 +4,7 @@ import { MethodType } from "@/method/method-type";
 import { MethodOptions } from "@/method/method-options";
 import { OpenApiView } from "@/documentation/views/openapi";
 import { SchemaView } from "@/documentation/views/schema-view";
+import { SchemaBuilder } from "@/schema-builder";
 
 // REST-specific API implementation
 export class RestApi extends Api {
@@ -30,16 +31,21 @@ export class RestApi extends Api {
       "schema",
       async () => {
         const documentation = this.documentationRegistry.getDocumentation();
-        const schemaView = new SchemaView(
+
+        // Build Schema object from documentation
+        const schema = SchemaBuilder.buildRestSchema(
           this.apiName,
-          documentation.methods,
           this.version,
+          "", // baseUrl will be set by the caller if needed
+          documentation.methods,
           documentation.types,
-          "",
         );
-        return schemaView.getManifest();
+
+        // SchemaView just renders the schema
+        const schemaView = new SchemaView(schema);
+        return schemaView.getSchema().toJSON();
       },
-      "Universal API schema manifest",
+      "Universal API schema",
     ),
     // Health check endpoint
     new Method(

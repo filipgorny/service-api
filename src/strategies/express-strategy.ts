@@ -7,12 +7,27 @@ import { Strategy } from "@/strategies/strategy";
 import { MethodsCollection } from "@/method/methods-collection";
 import { createLogger, LogLevel } from "@filipgorny/logger";
 
+// Optional auth imports - will be undefined if @filipgorny/auth is not installed
+let createRequestContextProxy: any;
+let isAuthRequired: any;
+let SessionManager: any;
+
+try {
+  const auth = require("@filipgorny/auth");
+  createRequestContextProxy = auth.createRequestContextProxy;
+  isAuthRequired = auth.isAuthRequired;
+  SessionManager = auth.SessionManager;
+} catch (e) {
+  // @filipgorny/auth not installed - authentication features disabled
+}
+
 export class ExpressStrategy implements Strategy {
   type = StrategyType.REST;
 
   private app: Application;
   private server: any;
   private logger;
+  private sessionManager?: any; // SessionManager from @filipgorny/auth (optional)
 
   constructor(
     private port: number,
@@ -51,11 +66,77 @@ export class ExpressStrategy implements Strategy {
           ...(httpMethod === "GET" ? req.query : req.body),
           ...params,
         };
+
+        // Transform input data to class instance if needed
+        let transformedData: any;
         if (method.inputClass) {
-          inputInstance =
+          transformedData =
             plainToInstance(method.inputClass, inputData) || inputData;
         } else {
-          inputInstance = inputData;
+          transformedData = inputData;
+        }
+
+        // Wrap in RequestContext if auth package is available
+        if (createRequestContextProxy) {
+          inputInstance = createRequestContextProxy(transformedData, req);
+        } else {
+          inputInstance = transformedData;
+        }
+
+        // Check if authentication is required for this method
+        if (isAuthRequired && isAuthRequired(method.inputClass)) {
+          // Extract token from Authorization header
+          const authHeader = req.headers.authorization;
+          let token: string | undefined;
+
+          if (authHeader && authHeader.startsWith("Bearer ")) {
+            token = authHeader.substring(7);
+          }
+
+          if (!token) {
+            return res.status(401).json({
+              error: "Unauthorized",
+              message: "Missing authentication token",
+            });
+          }
+
+          // Verify token using SessionManager if available
+          if (this.sessionManager) {
+            try {
+              const session = await this.sessionManager.verifyToken(token);
+
+              if (!session) {
+                return res.status(401).json({
+                  error: "Unauthorized",
+                  message: "Invalid or expired token",
+                });
+              }
+
+              // Attach session and user to context if using RequestContext
+              if (inputInstance.setSession && inputInstance.setUser) {
+                inputInstance.setSession(session);
+                // Load user from session if needed
+                if (session.user) {
+                  inputInstance.setUser(session.user);
+                }
+              }
+            } catch (authError: any) {
+              this.logger.error("Authentication error:", authError);
+              return res.status(401).json({
+                error: "Unauthorized",
+                message: "Authentication failed",
+              });
+            }
+          } else {
+            // SessionManager not configured but auth is required
+            this.logger.warn(
+              "Authentication required but SessionManager not configured",
+            );
+            return res.status(500).json({
+              error: "Internal Server Error",
+              message: "Authentication not configured",
+            });
+          }
         }
 
         // Execute handler with validated input - wrapped in try-catch
@@ -100,6 +181,14 @@ export class ExpressStrategy implements Strategy {
           break;
       }
     }
+  }
+
+  /**
+   * Set the SessionManager for authentication
+   * @param sessionManager - SessionManager instance from @filipgorny/auth
+   */
+  setSessionManager(sessionManager: any): void {
+    this.sessionManager = sessionManager;
   }
 
   onApiRun(): void {
