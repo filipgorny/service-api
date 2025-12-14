@@ -9,14 +9,12 @@ import { createLogger, LogLevel } from "@filipgorny/logger";
 
 // Optional auth imports - will be undefined if @filipgorny/auth is not installed
 let createRequestContextProxy: any;
-let isAuthRequired: any;
-let SessionManager: any;
+let AccessDeniedError: any;
 
 try {
   const auth = require("@filipgorny/auth");
   createRequestContextProxy = auth.createRequestContextProxy;
-  isAuthRequired = auth.isAuthRequired;
-  SessionManager = auth.SessionManager;
+  AccessDeniedError = auth.AccessDeniedError;
 } catch (e) {
   // @filipgorny/auth not installed - authentication features disabled
 }
@@ -27,7 +25,6 @@ export class ExpressStrategy implements Strategy {
   private app: Application;
   private server: any;
   private logger;
-  private sessionManager?: any; // SessionManager from @filipgorny/auth (optional)
 
   constructor(
     private port: number,
@@ -83,58 +80,33 @@ export class ExpressStrategy implements Strategy {
           inputInstance = transformedData;
         }
 
-        // Check if authentication is required for this method
-        if (isAuthRequired && isAuthRequired(method.inputClass)) {
-          // Extract token from Authorization header
-          const authHeader = req.headers.authorization;
-          let token: string | undefined;
+        // Execute guard if present
+        if (method.guard) {
+          try {
+            const canActivate = await method.guard.canActivate(
+              inputInstance.getRequest ? inputInstance.getRequest() : req,
+            );
 
-          if (authHeader && authHeader.startsWith("Bearer ")) {
-            token = authHeader.substring(7);
-          }
-
-          if (!token) {
-            return res.status(401).json({
-              error: "Unauthorized",
-              message: "Missing authentication token",
-            });
-          }
-
-          // Verify token using SessionManager if available
-          if (this.sessionManager) {
-            try {
-              const session = await this.sessionManager.verifyToken(token);
-
-              if (!session) {
-                return res.status(401).json({
-                  error: "Unauthorized",
-                  message: "Invalid or expired token",
-                });
-              }
-
-              // Attach session and user to context if using RequestContext
-              if (inputInstance.setSession && inputInstance.setUser) {
-                inputInstance.setSession(session);
-                // Load user from session if needed
-                if (session.user) {
-                  inputInstance.setUser(session.user);
-                }
-              }
-            } catch (authError: any) {
-              this.logger.error("Authentication error:", authError);
-              return res.status(401).json({
-                error: "Unauthorized",
-                message: "Authentication failed",
+            if (!canActivate) {
+              return res.status(403).json({
+                error: "Forbidden",
+                message: "Access denied",
               });
             }
-          } else {
-            // SessionManager not configured but auth is required
-            this.logger.warn(
-              "Authentication required but SessionManager not configured",
-            );
+          } catch (guardError: any) {
+            // Check if it's an AccessDeniedError
+            if (AccessDeniedError && guardError instanceof AccessDeniedError) {
+              return res.status(403).json({
+                error: "Forbidden",
+                message: guardError.message,
+              });
+            }
+
+            // Other guard errors
+            this.logger.error("Guard execution error:", guardError);
             return res.status(500).json({
               error: "Internal Server Error",
-              message: "Authentication not configured",
+              message: "Guard execution failed",
             });
           }
         }
@@ -151,6 +123,14 @@ export class ExpressStrategy implements Strategy {
 
           return;
         } catch (handlerError: any) {
+          // Check if it's an AccessDeniedError thrown from within the handler
+          if (AccessDeniedError && handlerError instanceof AccessDeniedError) {
+            return res.status(403).json({
+              error: "Forbidden",
+              message: handlerError.message,
+            });
+          }
+
           // Handler threw an error - return 500 Internal Service Error
           this.logger.error(
             `[Service Error] ${httpMethod} ${method.name}:`,
@@ -181,14 +161,6 @@ export class ExpressStrategy implements Strategy {
           break;
       }
     }
-  }
-
-  /**
-   * Set the SessionManager for authentication
-   * @param sessionManager - SessionManager instance from @filipgorny/auth
-   */
-  setSessionManager(sessionManager: any): void {
-    this.sessionManager = sessionManager;
   }
 
   onApiRun(): void {
