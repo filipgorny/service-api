@@ -12,12 +12,14 @@ import { ResourceNotFoundError } from "@/errors/resource-not-found.error";
 let createRequestContextProxy: any;
 let isAuthRequired: any;
 let SessionManager: any;
+let AccessDeniedError: any;
 
 try {
   const auth = require("@filipgorny/auth");
   createRequestContextProxy = auth.createRequestContextProxy;
   isAuthRequired = auth.isAuthRequired;
   SessionManager = auth.SessionManager;
+  AccessDeniedError = auth.AccessDeniedError;
 } catch (e) {
   // @filipgorny/auth not installed - authentication features disabled
 }
@@ -84,6 +86,37 @@ export class ExpressStrategy implements Strategy {
           inputInstance = transformedData;
         }
 
+        // Execute guard if present
+        if ((method as any).guard) {
+          try {
+            const canActivate = await (method as any).guard.canActivate(
+              inputInstance.getRequest ? inputInstance.getRequest() : req,
+            );
+
+            if (!canActivate) {
+              return res.status(403).json({
+                error: "Forbidden",
+                message: "Access denied",
+              });
+            }
+          } catch (guardError: any) {
+            // Check if it's an AccessDeniedError
+            if (AccessDeniedError && guardError instanceof AccessDeniedError) {
+              return res.status(403).json({
+                error: "Forbidden",
+                message: guardError.message,
+              });
+            }
+
+            // Other guard errors
+            this.logger.error("Guard execution error:", guardError);
+            return res.status(500).json({
+              error: "Internal Server Error",
+              message: "Guard execution failed",
+            });
+          }
+        }
+
         // Check if authentication is required for this method
         if (
           isAuthRequired &&
@@ -146,7 +179,12 @@ export class ExpressStrategy implements Strategy {
 
         // Execute handler with validated input - wrapped in try-catch
         try {
-          const result = await method.handler(inputInstance);
+          const context = {
+            params: req.params,
+            query: req.query,
+            body: req.body,
+          };
+          const result = await method.handler(inputInstance, context);
 
           if (typeof result === "string") {
             res.type("text/html").send(result);
@@ -167,6 +205,14 @@ export class ExpressStrategy implements Strategy {
               error: "Resource not found",
               message:
                 handlerError.message || "The requested resource was not found",
+            });
+          }
+
+          // Check if it's an AccessDeniedError thrown from within the handler
+          if (AccessDeniedError && handlerError instanceof AccessDeniedError) {
+            return res.status(403).json({
+              error: "Forbidden",
+              message: handlerError.message,
             });
           }
 
