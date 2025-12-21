@@ -5,7 +5,8 @@ import { MethodType } from "@/method/method-type";
 import { StrategyType } from "@/strategies/strategy-type";
 import { Strategy } from "@/strategies/strategy";
 import { MethodsCollection } from "@/method/methods-collection";
-import { createLogger, LogLevel } from "@filipgorny/logger";
+import { createLogger, Logger, LogLevel } from "@filipgorny/logger";
+import { ResourceNotFoundError } from "@/errors/resource-not-found.error";
 
 // Optional auth imports - will be undefined if @filipgorny/auth is not installed
 let createRequestContextProxy: any;
@@ -26,7 +27,7 @@ export class ExpressStrategy implements Strategy {
 
   private app: Application;
   private server: any;
-  private logger;
+  private logger: Logger;
   private sessionManager?: any; // SessionManager from @filipgorny/auth (optional)
 
   constructor(
@@ -84,7 +85,11 @@ export class ExpressStrategy implements Strategy {
         }
 
         // Check if authentication is required for this method
-        if (isAuthRequired && isAuthRequired(method.inputClass)) {
+        if (
+          isAuthRequired &&
+          method.inputClass &&
+          isAuthRequired(method.inputClass)
+        ) {
           // Extract token from Authorization header
           const authHeader = req.headers.authorization;
           let token: string | undefined;
@@ -151,6 +156,20 @@ export class ExpressStrategy implements Strategy {
 
           return;
         } catch (handlerError: any) {
+          // Check if error is ResourceNotFoundError - return 404
+          if (handlerError instanceof ResourceNotFoundError) {
+            this.logger.warn(
+              `[Resource Not Found] ${httpMethod} ${method.name}:`,
+              handlerError,
+            );
+
+            return res.status(404).json({
+              error: "Resource not found",
+              message:
+                handlerError.message || "The requested resource was not found",
+            });
+          }
+
           // Handler threw an error - return 500 Internal Service Error
           this.logger.error(
             `[Service Error] ${httpMethod} ${method.name}:`,

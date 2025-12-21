@@ -17,6 +17,9 @@ export type { Strategy } from "@/strategies/strategy";
 export { SchemaView } from "@/documentation/views/schema-view";
 export { SchemaBuilder } from "@/schema-builder";
 
+// Errors
+export { ResourceNotFoundError } from "@/errors/resource-not-found.error";
+
 // Schema - primary export for service-to-service communication
 export { Schema } from "@/schema";
 export type {
