@@ -1,5 +1,6 @@
 import expressLib, { Application } from "express";
 import cors from "cors";
+import path from "path";
 import { plainToInstance } from "class-transformer";
 import { MethodType } from "@/method/method-type";
 import { StrategyType } from "@/strategies/strategy-type";
@@ -7,6 +8,7 @@ import { Strategy } from "@/strategies/strategy";
 import { MethodsCollection } from "@/method/methods-collection";
 import { createLogger, Logger, LogLevel } from "@filipgorny/logger";
 import { ResourceNotFoundError } from "@/errors/resource-not-found.error";
+import { Method } from "@/method/method";
 
 // Optional auth imports - will be undefined if @filipgorny/auth is not installed
 let createRequestContextProxy: any;
@@ -24,6 +26,11 @@ try {
   // @filipgorny/auth not installed - authentication features disabled
 }
 
+export interface ExpressStrategyOptions {
+  enableSwagger?: boolean;
+  apiName?: string;
+}
+
 export class ExpressStrategy implements Strategy {
   type = StrategyType.REST;
 
@@ -31,19 +38,36 @@ export class ExpressStrategy implements Strategy {
   private server: any;
   private logger: Logger;
   private sessionManager?: any; // SessionManager from @filipgorny/auth (optional)
+  private registeredMethods: Method[] = [];
+  private apiVersion: string = "1.0.0";
+  private options: ExpressStrategyOptions;
 
   constructor(
     private port: number,
     logLevel: LogLevel = LogLevel.INFO,
+    options: ExpressStrategyOptions = {},
   ) {
     this.app = expressLib();
     this.logger = createLogger("ExpressStrategy", logLevel);
+    this.options = {
+      enableSwagger: true,
+      apiName: "API",
+      ...options,
+    };
   }
 
   configure(methods: MethodsCollection, version: string): void {
+    this.apiVersion = version;
+    this.registeredMethods = methods.getAll();
+
     // Built-in middleware
     this.app.use(cors()); // Enable CORS for all routes by default
     this.app.use(expressLib.json());
+
+    // Setup Swagger UI if enabled
+    if (this.options.enableSwagger) {
+      this.setupSwaggerUI();
+    }
 
     // Register each method as an Express route with metadata-driven validation
     for (const method of methods.getAll()) {
@@ -326,9 +350,171 @@ export class ExpressStrategy implements Strategy {
       }
     });
   }
+
+  /**
+   * Setup Swagger UI endpoints
+   */
+  private setupSwaggerUI(): void {
+    // Build OpenAPI spec from registered methods
+    const openApiSpec = this.buildOpenApiSpec();
+
+    // Serve Swagger UI static files
+    const swaggerUiPath = path.dirname(require.resolve("swagger-ui-dist/package.json"));
+    this.app.use("/swagger-ui", expressLib.static(swaggerUiPath));
+
+    // Serve OpenAPI spec as JSON
+    this.app.get("/openapi.json", (_req, res) => {
+      res.json(openApiSpec);
+    });
+
+    // Serve Swagger UI HTML at root and /docs
+    const swaggerHtml = this.generateSwaggerHTML();
+    this.app.get("/", (_req, res) => {
+      res.type("text/html").send(swaggerHtml);
+    });
+    this.app.get("/docs", (_req, res) => {
+      res.type("text/html").send(swaggerHtml);
+    });
+
+    this.logger.info("Swagger UI enabled at / and /docs");
+  }
+
+  /**
+   * Generate Swagger UI HTML page
+   */
+  private generateSwaggerHTML(): string {
+    return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${this.options.apiName} - API Documentation</title>
+  <link rel="stylesheet" type="text/css" href="/swagger-ui/swagger-ui.css" />
+  <style>
+    html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+    *, *:before, *:after { box-sizing: inherit; }
+    body { margin: 0; background: #fafafa; }
+  </style>
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="/swagger-ui/swagger-ui-bundle.js"></script>
+  <script src="/swagger-ui/swagger-ui-standalone-preset.js"></script>
+  <script>
+    window.onload = function() {
+      SwaggerUIBundle({
+        url: "/openapi.json",
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout"
+      });
+    };
+  </script>
+</body>
+</html>
+    `.trim();
+  }
+
+  /**
+   * Build OpenAPI 3.0 specification from registered methods
+   */
+  private buildOpenApiSpec(): object {
+    const paths: Record<string, any> = {};
+
+    for (const method of this.registeredMethods) {
+      const routePath = this.generatePath(method.name);
+      const httpMethod = this.translateMethodType(method.type).toLowerCase();
+
+      if (!paths[routePath]) {
+        paths[routePath] = {};
+      }
+
+      const operation: any = {
+        summary: method.description || method.name,
+        operationId: method.name.replace(/[^a-zA-Z0-9]/g, "_"),
+        tags: [this.extractTag(routePath)],
+        responses: {
+          "200": {
+            description: "Successful response",
+            content: {
+              "application/json": {
+                schema: { type: "object" },
+              },
+            },
+          },
+          "400": {
+            description: "Bad request",
+          },
+          "500": {
+            description: "Internal server error",
+          },
+        },
+      };
+
+      // Add request body for POST/PUT methods
+      if (httpMethod === "post" || httpMethod === "put") {
+        operation.requestBody = {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object" },
+            },
+          },
+        };
+      }
+
+      // Extract path parameters
+      const pathParams = routePath.match(/:([^/]+)/g);
+      if (pathParams) {
+        operation.parameters = pathParams.map((param) => ({
+          name: param.substring(1),
+          in: "path",
+          required: true,
+          schema: { type: "string" },
+        }));
+      }
+
+      paths[routePath][httpMethod] = operation;
+    }
+
+    return {
+      openapi: "3.0.0",
+      info: {
+        title: this.options.apiName,
+        version: this.apiVersion,
+        description: `API Documentation for ${this.options.apiName}`,
+      },
+      servers: [
+        {
+          url: `http://localhost:${this.port}`,
+          description: "Development server",
+        },
+      ],
+      paths,
+    };
+  }
+
+  /**
+   * Extract tag from route path (first segment)
+   */
+  private extractTag(path: string): string {
+    const segments = path.split("/").filter(Boolean);
+    if (segments.length > 0) {
+      return segments[0].replace(/^:/, "");
+    }
+    return "default";
+  }
 }
 
 // Factory function for creating Express strategy
-export function express(port: number): ExpressStrategy {
-  return new ExpressStrategy(port);
+export function express(port: number, options?: ExpressStrategyOptions): ExpressStrategy {
+  return new ExpressStrategy(port, LogLevel.INFO, options);
 }

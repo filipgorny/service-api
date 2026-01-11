@@ -14,6 +14,7 @@ export type { MethodConfig } from "./method/method-config";
 export type { TypesRegistry } from "./method/types-registry";
 export { StrategyType } from "@/strategies/strategy-type";
 export { express, ExpressStrategy } from "@/strategies/express-strategy";
+export type { ExpressStrategyOptions } from "@/strategies/express-strategy";
 export type { Strategy } from "@/strategies/strategy";
 export { SchemaView } from "@/documentation/views/schema-view";
 export { SchemaBuilder } from "@/schema-builder";
@@ -58,3 +59,7 @@ export type {
   ProtocolType,
   HttpMethod,
 } from "@/schema";
+
+// WebSocket support
+export { ws, wsEndpoint, setupWebSocketServer, generateWebSocketSchema } from "./websocket";
+export type { WebSocketApi, WsEndpointConfig, WsEndpointSchema } from "./websocket";

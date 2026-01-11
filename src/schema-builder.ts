@@ -7,6 +7,7 @@ import {
   JsonSchema,
   PropertySchema,
   HttpMethod,
+  WsEndpointSchema,
 } from "@/schema";
 import { MethodDocumentation } from "@/documentation/method-documentation";
 import { TypesRegistry } from "@/method/types-registry";
@@ -26,6 +27,7 @@ export class SchemaBuilder {
     methods: MethodDocumentation[],
     types: TypesRegistry,
     description?: string,
+    websocket?: Record<string, WsEndpointSchema>,
   ): Schema {
     const service: ServiceInfo = {
       name: apiName,
@@ -39,7 +41,7 @@ export class SchemaBuilder {
 
     const definitions = this.buildDefinitions(types);
 
-    return new Schema(service, operations, definitions);
+    return new Schema(service, operations, definitions, websocket);
   }
 
   /**

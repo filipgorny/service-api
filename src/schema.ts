@@ -79,21 +79,36 @@ export interface SchemaDefinition {
 }
 
 /**
+ * WebSocket endpoint schema for service discovery
+ */
+export interface WsEndpointSchema {
+  description: string;
+  params?: any;
+  events?: {
+    server: string[];
+    client?: string[];
+  };
+}
+
+/**
  * Schema class - main class for describing API
  */
 export class Schema {
   public readonly service: ServiceInfo;
   public readonly operations: Operation[];
   public readonly definitions: Record<string, SchemaDefinition>;
+  public readonly websocket?: Record<string, WsEndpointSchema>;
 
   constructor(
     service: ServiceInfo,
     operations: Operation[],
     definitions: Record<string, SchemaDefinition> = {},
+    websocket?: Record<string, WsEndpointSchema>,
   ) {
     this.service = service;
     this.operations = operations;
     this.definitions = definitions;
+    this.websocket = websocket;
   }
 
   /**
@@ -103,11 +118,13 @@ export class Schema {
     service: ServiceInfo;
     operations: Operation[];
     definitions: Record<string, SchemaDefinition>;
+    websocket?: Record<string, WsEndpointSchema>;
   } {
     return {
       service: this.service,
       operations: this.operations,
       definitions: this.definitions,
+      websocket: this.websocket,
     };
   }
 
@@ -118,8 +135,9 @@ export class Schema {
     service: ServiceInfo;
     operations: Operation[];
     definitions: Record<string, SchemaDefinition>;
+    websocket?: Record<string, WsEndpointSchema>;
   }): Schema {
-    return new Schema(json.service, json.operations, json.definitions);
+    return new Schema(json.service, json.operations, json.definitions, json.websocket);
   }
 
   /**
